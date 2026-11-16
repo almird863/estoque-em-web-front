@@ -1,5 +1,5 @@
 const formLogin = document.getElementById('form-login')
-const API_URL = 'http://localhost:3001'
+const API_URL = 'http://localhost:3000'
 
 
 formLogin.addEventListener('submit', (e) => {
@@ -17,8 +17,7 @@ formLogin.addEventListener('submit', (e) => {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify(loginRequest)
-    }
-    )
+    })
         .then((res) => {
             if (!res.ok) { throw new Error('Falha no login') }
             return res.json()
