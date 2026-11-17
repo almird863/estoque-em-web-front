@@ -13,6 +13,7 @@ const botaoSalvar = document.getElementById("btn-salvar");
 const botaoCancelar = document.getElementById("btn-cancelar");
 const tituloDialogo = document.getElementById("titulo-dialogo");
 const botaoExcluir = document.getElementById("btn-excluir");
+const formFiltro = document.getElementById("filtros")
 
 // Guarda os produtos carregados (para preencher o formulário ao editar)
 const produtosPorId = new Map();
@@ -308,6 +309,10 @@ dialogoProduto.addEventListener("click", (evento) => {
         fecharDialogoProduto();
     }
 });
+
+formFiltro.addEventListener('submit', (e) => {
+    e.preventDefault()
+})
 
 /* ---------- Início ---------- */
 carregarEstoque();
