@@ -47,7 +47,7 @@
 
     </main>
 
-    <!-- Janela de cadastro de produto -->
+    <!-- Janela: cadastrar produto novo -->
     <dialog id="dialogo-produto" aria-labelledby="titulo-dialogo">
         <form id="form-produto">
             <h2 id="titulo-dialogo">Novo produto</h2>
@@ -71,9 +71,33 @@
             <p id="erro-produto" class="erro-form" role="alert" hidden></p>
 
             <div class="dialogo-acoes">
-                <button type="button" class="perigo" id="btn-excluir" hidden>Excluir produto</button>
                 <button type="button" class="secundario" id="btn-cancelar">Cancelar</button>
                 <button type="submit" id="btn-salvar">Salvar produto</button>
+            </div>
+        </form>
+    </dialog>
+
+    <!-- Janela: adicionar ou remover quantidade (entrada / saída de estoque) -->
+    <dialog id="dialogo-movimento" aria-labelledby="titulo-movimento">
+        <form id="form-movimento" novalidate>
+            <h2 id="titulo-movimento">Adicionar ao estoque</h2>
+            <p id="movimento-produto" class="movimento-produto"></p>
+
+            <label for="movimento-quantidade" id="rotulo-movimento">Quantidade a adicionar</label>
+            <input type="number" id="movimento-quantidade" name="quantidade" min="1" step="1" inputmode="numeric" autocomplete="off" autofocus>
+
+            <p class="movimento-previa">
+                Estoque atual: <strong id="movimento-atual"></strong>
+                &rarr; depois: <strong id="movimento-depois"></strong>
+            </p>
+
+            <p id="erro-movimento" class="erro-form" role="alert" hidden></p>
+
+            <div class="dialogo-acoes">
+                <!-- o Excluir só aparece quando a janela está em modo "Remover" -->
+                <button type="button" class="perigo" id="btn-excluir" hidden>Excluir produto</button>
+                <button type="button" class="secundario" id="btn-cancelar-movimento">Cancelar</button>
+                <button type="submit" class="entrada" id="btn-confirmar-movimento">Adicionar</button>
             </div>
         </form>
     </dialog>

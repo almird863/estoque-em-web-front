@@ -313,7 +313,8 @@ tbody tr {
     grid-template-columns: 1fr auto;
     grid-template-areas:
         "nome qtd"
-        "id   acao";
+        "id   id"
+        "acao acao";
     align-items: center;
     gap: 0;
     margin-bottom: 0.75rem;
@@ -330,11 +331,6 @@ td {
 
 td:nth-child(1) {          /* Id */
     grid-area: id;
-    display: flex;
-    align-items: center;
-    align-self: stretch;
-    padding-top: 0.75rem;
-    border-top: 1px solid var(--linha-forte);
     color: var(--texto-suave);
     font-size: 0.9rem;
 }
@@ -345,7 +341,7 @@ td:nth-child(1)::before {
 
 td:nth-child(2) {          /* Nome */
     grid-area: nome;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.15rem;
     font-size: 1.2rem;
     font-weight: 600;
     line-height: 1.2;
@@ -354,7 +350,7 @@ td:nth-child(2) {          /* Nome */
 td:nth-child(3) {          /* Quantidade */
     grid-area: qtd;
     justify-self: end;
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.15rem;
     padding: 0.3rem 0.9rem;
     background: var(--acao-suave);
     color: var(--acao-escuro);
@@ -370,15 +366,21 @@ td:nth-child(3)::after {
 td:nth-child(4) {          /* Ações */
     grid-area: acao;
     align-self: stretch;
-    padding-top: 0.75rem;
+    margin-top: 0.85rem;
+    padding-top: 0.85rem;
     border-top: 1px solid var(--linha-forte);
-    text-align: right;
 }
 
-/* botão Editar: verde sólido, bem destacado */
-td button {
+/* Botões da linha: Adicionar (entrada) e Remover (saída), lado a lado e do mesmo tamanho */
+.acoes-linha {
+    display: flex;
+    gap: 0.6rem;
+}
+
+.acoes-linha button {
+    flex: 1;
     min-height: 3rem;
-    padding: 0 1.9rem;
+    padding: 0 1rem;
     font-size: 1.05rem;
 }
 
@@ -429,6 +431,33 @@ button.secundario:hover {
 
 button[hidden] {
     display: none;
+}
+
+/* Entrada (verde, o padrão) e saída (cor de aço), com + e − antes do texto */
+button.entrada::before,
+button.saida::before {
+    margin-right: 0.4rem;
+    font-size: 1.35em;
+    font-weight: 500;
+    line-height: 1;
+    vertical-align: -0.08em;
+}
+
+button.entrada::before {
+    content: "+";
+}
+
+button.saida::before {
+    content: "\2212"; /* sinal de menos */
+}
+
+button.saida {
+    background: var(--aco);
+    box-shadow: 0 4px 12px rgba(31, 42, 51, 0.3);
+}
+
+button.saida:hover {
+    background: #34434f;
 }
 
 /* Botão de excluir: contorno vermelho; no 2º toque (confirmando) fica sólido */
@@ -515,6 +544,25 @@ dialog small {
     color: var(--alerta);
     border-radius: 18px;
     font-weight: 500;
+}
+
+.movimento-produto {
+    margin: 0;
+    color: var(--texto-suave);
+    font-weight: 500;
+}
+
+.movimento-previa {
+    margin: 0.25rem 0 0;
+    padding: 0.7rem 1rem;
+    background: var(--chao);
+    border-radius: 18px;
+    color: var(--texto-suave);
+}
+
+.movimento-previa strong {
+    color: var(--texto);
+    font-variant-numeric: tabular-nums;
 }
 
 .dialogo-acoes {
@@ -712,12 +760,17 @@ footer {
 
     th:last-child,
     td:last-child {
-        width: 8rem;
+        width: 15rem;
     }
 
-    td button {
+    .acoes-linha {
+        justify-content: flex-end;
+    }
+
+    .acoes-linha button {
+        flex: none;
         min-height: 2.5rem;
-        padding: 0 1.4rem;
+        padding: 0 1.1rem;
         font-size: 1rem;
     }
 
