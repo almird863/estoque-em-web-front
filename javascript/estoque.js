@@ -1,4 +1,4 @@
-const url_server = "http://localhost:3000";
+const url_server = "https://estoque-em-web-back.onrender.com";
 
 /* ---------- Referências ao HTML ---------- */
 const corpoTabela = document.getElementById("corpo-tabela");
