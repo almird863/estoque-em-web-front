@@ -1,26 +1,86 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="pt-BR">
 <head>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="css/style.css">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistema de Estoque | Login</title>
+    <title>Sistema de Estoque | Principal</title>
 </head>
-
 <body>
     <main>
-        <form class="form-login" id="form-login">
-            <input type="text" class="campo-nome-login" id="form-login-nome">
-            <input type="password" class="campo-senha-login" id="form-login-senha">
-            <input type="submit" value="LOGIN" id="submit-form-login">
-        </form>
-        <button class="button-cadastro" id="button-cadastro">FAZER CADASTRO</button>
-        <p class="campo-login-msg" id="campo-login-msg"></p>
+        <section id="resumo" class="resumo">
+            <h2 id="titulo-resumo">Resumo</h2>
+
+            <article><strong>Total de items:</strong> <span id="titulo-total-items"></span></article>
+            <article><strong>Estoque baixo:</strong> <span id="titulo-estoque-baixo"></span></article>
+        </section>
+
+        <section id="produtos" class="produtos">
+            <h2 id="titulo-produtos">Produtos</h2>
+
+            <form class="filtros" id="filtros" role="search">
+                <label for="busca">Buscar</label>
+                <input type="search" id="busca" name="busca" placeholder="Digite o nome ou código do produto">
+                <select name="categoria">
+                    <option value="Todas">Todas as categorias</option>
+                    <option value="Fritos">Fritos</option>
+                    <option value="Forno">Forno</option>
+                </select>
+                <button type="submit">Filtrar</button>
+            </form>
+
+            <section class="acoes">
+                <button type="button" id="btn-adicionar">Adicionar produto</button>
+            </section>
+
+            <table id="tabela-estoque">
+                <caption>Lista de produtos em estoque</caption>
+                <thead>
+                    <tr id="tabela-item"><th id="th-id">Id</th><th id="th-nome">Nome</th><th id="th-qtd">Qtd.</th><th id="th-acoes">Ações</th></tr>
+                </thead>
+                <tbody id="corpo-tabela">
+                    <!-- as linhas são criadas por javascript/estoque.js -->
+                </tbody>
+            </table>
+
+        </section>
+
     </main>
 
-    <script src="javascript/index.js"></script>
+    <!-- Janela de cadastro de produto -->
+    <dialog id="dialogo-produto" aria-labelledby="titulo-dialogo">
+        <form id="form-produto">
+            <h2 id="titulo-dialogo">Novo produto</h2>
+
+            <label for="produto-nome">Nome</label>
+            <input type="text" id="produto-nome" name="nome" required maxlength="80" autocomplete="off" autofocus>
+
+            <label for="produto-categoria">Categoria</label>
+            <select id="produto-categoria" name="categoria" required>
+                <option value="Fritos">Fritos</option>
+                <option value="Forno">Forno</option>
+            </select>
+
+            <label for="produto-quantidade">Quantidade</label>
+            <input type="number" id="produto-quantidade" name="quantidade" required min="0" step="1" inputmode="numeric">
+
+            <label for="produto-minimo">Estoque mínimo</label>
+            <input type="number" id="produto-minimo" name="estoqueMinimo" min="0" step="1" value="10" inputmode="numeric">
+            <small>Quando a quantidade chegar a esse valor ou menos, o produto entra em estoque baixo.</small>
+
+            <p id="erro-produto" class="erro-form" role="alert" hidden></p>
+
+            <div class="dialogo-acoes">
+                <button type="button" class="perigo" id="btn-excluir" hidden>Excluir produto</button>
+                <button type="button" class="secundario" id="btn-cancelar">Cancelar</button>
+                <button type="submit" id="btn-salvar">Salvar produto</button>
+            </div>
+        </form>
+    </dialog>
+
+    <footer><small>Sistema de Estoque Almir © 2026</small></footer>
+
+    <script src="javascript/estoque.js"></script>
 
 </body>
-
 </html>
