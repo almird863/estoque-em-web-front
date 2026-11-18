@@ -8,4 +8,4 @@
 const url_server = "https://estoque-em-web-back.onrender.com";
 
 // Client ID do Google (Google Cloud Console > Credenciais). Não é segredo, pode ficar aqui.
-const GOOGLE_CLIENT_ID = "486979187580-8uu48jbd8tcino2u5ie0rhktqbfcd3pa.apps.googleusercontent.com";
+const GOOGLE_CLIENT_ID = "486979187580-8uu48jbd8tcino2u5ie0rhktqbfcd3pa.apps.googleusercontent.com"
