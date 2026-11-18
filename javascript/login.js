@@ -58,7 +58,7 @@ async function aoReceberCredencial(resposta) {
 }
 
 function iniciarBotaoGoogle() {
-    if (GOOGLE_CLIENT_ID.includes("486979187580-8uu48jbd8tcino2u5ie0rhktqbfcd3pa.apps.googleusercontent.com")) {
+    if (GOOGLE_CLIENT_ID.includes("COLE_AQUI")) {
         mostrarErro("Falta configurar o Client ID do Google em javascript/config.js.");
         return;
     }
