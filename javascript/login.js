@@ -42,18 +42,23 @@ async function aoReceberCredencial(resposta) {
         // Confere se o navegador guardou o cookie, senão a próxima página mandaria de volta para cá
         if (!(await sessaoValida())) {
             throw new Error(
-                "O navegador não guardou a sessão. Abra o front-end e a API com o mesmo endereço (localhost com localhost, ou 127.0.0.1 com 127.0.0.1)."
+                "O navegador bloqueou o cookie de sessão. Isso acontece no Safari e em todos os navegadores do iPhone (que usam o motor do Safari). Use um computador ou um celular Android, ou desative o bloqueio de cookies entre sites."
             );
         }
 
         window.location.href = "index.html";
     } catch (erro) {
-        mostrarErro(erro instanceof TypeError ? "Não foi possível conectar ao servidor." : erro.message);
+        mostrarErro(
+            erro instanceof TypeError
+                ? "Não foi possível conectar ao servidor. Se ele estava parado, pode levar até 1 minuto para acordar: aguarde e tente de novo. Se persistir, abra o console (F12) para ver o motivo."
+                : erro.message
+        );
+        console.error(erro);
     }
 }
 
 function iniciarBotaoGoogle() {
-    if (GOOGLE_CLIENT_ID.includes("COLE_AQUI")) {
+    if (GOOGLE_CLIENT_ID.includes("486979187580-8uu48jbd8tcino2u5ie0rhktqbfcd3pa.apps.googleusercontent.com")) {
         mostrarErro("Falta configurar o Client ID do Google em javascript/config.js.");
         return;
     }
@@ -79,12 +84,15 @@ function iniciarBotaoGoogle() {
 }
 
 async function iniciar() {
+    // O botão aparece na hora; a conferência da sessão roda ao mesmo tempo.
+    // (O servidor gratuito do Render dorme quando fica parado e pode levar cerca de um minuto
+    // para responder; a pessoa não precisa esperar para ver o botão.)
+    iniciarBotaoGoogle();
+
     // Quem já está logado vai direto para o sistema
     if (await sessaoValida()) {
         window.location.replace("index.html");
-        return;
     }
-    iniciarBotaoGoogle();
 }
 
 // O script do Google carrega de forma assíncrona; esperamos a página inteira carregar
