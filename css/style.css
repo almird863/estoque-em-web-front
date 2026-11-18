@@ -757,6 +757,23 @@ footer a {
     }
 }
 
+/* ---------- Verificação de login ---------- */
+/* Enquanto o servidor não confirma a sessão, o conteúdo fica escondido (sem "piscar" dados privados) */
+body.verificando main,
+body.verificando footer {
+    visibility: hidden;
+}
+
+body.verificando::after {
+    content: "Verificando sessão…";
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: var(--texto-suave);
+    font-size: 1.1rem;
+}
+
 /* ---------- Rodapé ---------- */
 footer {
     padding: 1rem 1rem 0;

@@ -59,10 +59,13 @@ function irParaLogin() {
     window.location.replace("login.html");
 }
 
+// Erro próprio para "sessão inválida", para o resto do código saber distinguir de uma falha de rede
+class SessaoExpirada extends Error {}
+
 function verificarSessao(resposta) {
     if (resposta.status === 401) {
         irParaLogin();
-        throw new Error("Sessão expirada. Faça login novamente.");
+        throw new SessaoExpirada("Sessão expirada. Faça login novamente.");
     }
 }
 
@@ -449,21 +452,19 @@ async function excluirProduto() {
 }
 
 /* ---------- Usuário e sessão ---------- */
-// Mostra nome e foto de quem está logado
+// Pergunta ao servidor quem está logado e mostra nome e foto.
+// Se não houver sessão válida (401), buscarJSON já manda para o login e lança SessaoExpirada.
 async function carregarUsuario() {
-    try {
-        const usuario = await buscarJSON(`${url_server}/api/usuarios/eu`);
+    const usuario = await buscarJSON(`${url_server}/api/usuarios/eu`);
 
-        usuarioNome.textContent = usuario.nome;
-        if (usuario.foto) {
-            usuarioFoto.src = usuario.foto;
-        } else {
-            usuarioFoto.hidden = true;
-        }
-        usuarioBarra.hidden = false;
-    } catch (erro) {
-        console.error(erro);
+    usuarioNome.textContent = usuario.nome;
+    if (usuario.foto) {
+        usuarioFoto.src = usuario.foto;
+        usuarioFoto.hidden = false;
+    } else {
+        usuarioFoto.hidden = true;
     }
+    usuarioBarra.hidden = false;
 }
 
 async function sair() {
@@ -516,5 +517,30 @@ fecharAoClicarFora(dialogoMovimento);
 botaoSair.addEventListener("click", sair);
 
 /* ---------- Início ---------- */
-carregarUsuario();
-carregarEstoque();
+// Porteiro: a página só aparece depois de o servidor confirmar o login
+async function iniciar() {
+    try {
+        await carregarUsuario();
+    } catch (erro) {
+        // Sem login: o navegador já está indo para o login.html. A página continua escondida.
+        if (erro instanceof SessaoExpirada) {
+            return;
+        }
+        // Outra falha (ex.: servidor fora do ar): mostra a página, e a tabela exibe o aviso de erro
+        console.error(erro);
+    }
+
+    document.body.classList.remove("verificando");
+    carregarEstoque();
+}
+
+// Voltar/avançar no navegador pode mostrar uma cópia antiga da página (cache).
+// Por isso, ao reaparecer assim, a sessão é conferida de novo (ex.: depois de clicar em "Sair").
+window.addEventListener("pageshow", (evento) => {
+    if (evento.persisted) {
+        document.body.classList.add("verificando");
+        iniciar();
+    }
+});
+
+iniciar();
