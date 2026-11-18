@@ -1,35 +1,76 @@
-const url_server = "https://estoque-em-web-back.onrender.com";
+// url_server vem de config.js (carregado antes deste arquivo)
 
 /* ---------- Referências ao HTML ---------- */
+// Usuário logado
+const usuarioBarra = document.getElementById("usuario");
+const usuarioFoto = document.getElementById("usuario-foto");
+const usuarioNome = document.getElementById("usuario-nome");
+const botaoSair = document.getElementById("btn-sair");
+
+// Resumo e tabela
 const corpoTabela = document.getElementById("corpo-tabela");
 const totalItens = document.getElementById("titulo-total-items");
 const estoqueBaixo = document.getElementById("titulo-estoque-baixo");
 
+// Filtros
+const formFiltros = document.getElementById("filtros");
+const campoBusca = document.getElementById("busca");
+const campoCategoria = formFiltros.elements.categoria;
+
+// Janela: produto novo
 const botaoAdicionar = document.getElementById("btn-adicionar");
 const dialogoProduto = document.getElementById("dialogo-produto");
 const formProduto = document.getElementById("form-produto");
 const erroProduto = document.getElementById("erro-produto");
 const botaoSalvar = document.getElementById("btn-salvar");
 const botaoCancelar = document.getElementById("btn-cancelar");
-const tituloDialogo = document.getElementById("titulo-dialogo");
+
+// Janela: adicionar / remover quantidade
+const dialogoMovimento = document.getElementById("dialogo-movimento");
+const formMovimento = document.getElementById("form-movimento");
+const tituloMovimento = document.getElementById("titulo-movimento");
+const produtoMovimento = document.getElementById("movimento-produto");
+const rotuloMovimento = document.getElementById("rotulo-movimento");
+const campoQuantidade = document.getElementById("movimento-quantidade");
+const quantidadeAtual = document.getElementById("movimento-atual");
+const quantidadeDepois = document.getElementById("movimento-depois");
+const erroMovimento = document.getElementById("erro-movimento");
+const botaoConfirmar = document.getElementById("btn-confirmar-movimento");
+const botaoCancelarMovimento = document.getElementById("btn-cancelar-movimento");
 const botaoExcluir = document.getElementById("btn-excluir");
-const formFiltro = document.getElementById("filtros")
-
-// Guarda os produtos carregados (para preencher o formulário ao editar)
-const produtosPorId = new Map();
-
-// null = cadastrando um produto novo | id = editando esse produto
-let produtoEditandoId = null;
-
-// Controla o "toque de novo para confirmar" do botão Excluir
-let temporizadorConfirmacao = null;
 
 // Respeita quem desativou animações no sistema
 const reduzirMovimento = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+/* ---------- Estado ---------- */
+let todosProdutos = [];            // lista completa vinda do servidor (o filtro age sobre ela)
+const produtosPorId = new Map();   // acesso rápido por id
+
+// Qual produto e qual operação estão abertos na janela de movimentação
+// { id: "...", tipo: "entrada" | "saida" }
+let movimento = null;
+
+// Controla o "toque de novo para confirmar" do botão Excluir
+let temporizadorConfirmacao = null;
+
 /* ---------- Comunicação com o servidor ---------- */
+// Se o servidor responder 401, a sessão acabou: volta para o login
+function irParaLogin() {
+    window.location.replace("login.html");
+}
+
+function verificarSessao(resposta) {
+    if (resposta.status === 401) {
+        irParaLogin();
+        throw new Error("Sessão expirada. Faça login novamente.");
+    }
+}
+
+// credentials: "include" faz o navegador enviar o cookie de sessão junto com o pedido
 async function buscarJSON(url) {
-    const resposta = await fetch(url);
+    const resposta = await fetch(url, { credentials: "include" });
+    verificarSessao(resposta);
+
     if (!resposta.ok) {
         throw new Error(`Erro ${resposta.status} ao buscar ${url}`);
     }
@@ -40,8 +81,10 @@ async function enviarJSON(url, metodo, dados) {
     const resposta = await fetch(url, {
         method: metodo,
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(dados),
     });
+    verificarSessao(resposta);
 
     // O servidor responde { erro: "..." } quando algo está errado
     const corpo = await resposta.json().catch(() => ({}));
@@ -52,6 +95,57 @@ async function enviarJSON(url, metodo, dados) {
     return corpo;
 }
 
+/* ---------- Utilidades ---------- */
+// TypeError = o fetch nem chegou ao servidor
+function mensagemDeErro(erro) {
+    return erro instanceof TypeError ? "Não foi possível conectar ao servidor." : erro.message;
+}
+
+const esperar = (ms) => new Promise((resolver) => setTimeout(resolver, ms));
+
+function mostrarErro(elemento, texto) {
+    elemento.textContent = texto;
+    elemento.hidden = false;
+}
+
+function esconderErro(elemento) {
+    elemento.hidden = true;
+    elemento.textContent = "";
+}
+
+// Clicar no fundo escurecido (fora da janela) fecha a janela
+function fecharAoClicarFora(dialogo) {
+    dialogo.addEventListener("click", (evento) => {
+        if (evento.target === dialogo) {
+            dialogo.close();
+        }
+    });
+}
+
+/* ---------- Filtros ---------- */
+// "Fritos", "fritos" e "frítos" contam como iguais
+function normalizar(texto) {
+    return String(texto)
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+}
+
+function filtrarProdutos(produtos) {
+    const busca = normalizar(campoBusca.value.trim());
+    const categoria = campoCategoria.value;
+
+    return produtos.filter((produto) => {
+        const combinaBusca =
+            !busca ||
+            normalizar(produto.nome).includes(busca) ||
+            normalizar(produto.codigo).includes(busca);
+        const combinaCategoria = categoria === "Todas" || produto.categoria === categoria;
+
+        return combinaBusca && combinaCategoria;
+    });
+}
+
 /* ---------- Tabela e resumo ---------- */
 function criarCelula(texto) {
     const td = document.createElement("td");
@@ -59,7 +153,25 @@ function criarCelula(texto) {
     return td;
 }
 
-// animar: linhas entram uma após a outra | destacar: linha recém-cadastrada pisca em verde
+// acao: "entrada" (Adicionar) ou "saida" (Remover)
+function criarBotaoAcao(produto, acao) {
+    const botao = document.createElement("button");
+    const entrada = acao === "entrada";
+
+    botao.type = "button";
+    botao.className = acao;
+    botao.dataset.acao = acao;
+    botao.dataset.id = produto._id;
+    botao.textContent = entrada ? "Adicionar" : "Remover";
+    botao.setAttribute(
+        "aria-label",
+        `${entrada ? "Adicionar ao" : "Remover do"} estoque de ${produto.nome}`
+    );
+
+    return botao;
+}
+
+// animar: linhas entram uma após a outra | destacar: linha alterada pisca em verde
 function criarLinha(produto, { indice = 0, animar = false, destacar = false } = {}) {
     const tr = document.createElement("tr");
     tr.dataset.id = produto._id;
@@ -77,14 +189,12 @@ function criarLinha(produto, { indice = 0, animar = false, destacar = false } = 
         tdQtd.classList.add("estoque-baixo");
     }
 
-    const botao = document.createElement("button");
-    botao.type = "button";
-    botao.textContent = "Editar";
-    botao.dataset.id = produto._id;
-    botao.setAttribute("aria-label", `Editar ${produto.nome}`);
+    const acoes = document.createElement("div");
+    acoes.className = "acoes-linha";
+    acoes.append(criarBotaoAcao(produto, "entrada"), criarBotaoAcao(produto, "saida"));
 
     const tdAcoes = document.createElement("td");
-    tdAcoes.append(botao);
+    tdAcoes.append(acoes);
 
     tr.append(criarCelula(produto.codigo), criarCelula(produto.nome), tdQtd, tdAcoes);
     return tr;
@@ -101,18 +211,25 @@ function mostrarMensagem(texto) {
     corpoTabela.replaceChildren(tr);
 }
 
-function renderizarTabela(produtos, { animar = false, destacarId = null } = {}) {
-    if (produtos.length === 0) {
+// Desenha a tabela com a lista completa + os filtros atuais
+function renderizarTabela({ animar = false, destacarId = null } = {}) {
+    if (todosProdutos.length === 0) {
         mostrarMensagem("Nenhum produto cadastrado ainda.");
         return;
     }
 
-    const linhas = produtos.map((produto, indice) =>
+    const visiveis = filtrarProdutos(todosProdutos);
+    if (visiveis.length === 0) {
+        mostrarMensagem("Nenhum produto encontrado com esses filtros.");
+        return;
+    }
+
+    const linhas = visiveis.map((produto, indice) =>
         criarLinha(produto, { indice, animar, destacar: produto._id === destacarId })
     );
     corpoTabela.replaceChildren(...linhas);
 
-    // Leva a tela até o produto novo (útil no celular, onde ele pode estar fora da vista)
+    // Leva a tela até o produto alterado (útil no celular, onde ele pode estar fora da vista)
     if (destacarId) {
         corpoTabela
             .querySelector(`tr[data-id="${destacarId}"]`)
@@ -165,10 +282,11 @@ async function carregarEstoque({ silencioso = false, destacarId = null } = {}) {
             buscarJSON(`${url_server}/api/resumo`),
         ]);
 
+        todosProdutos = produtos;
         produtosPorId.clear();
         produtos.forEach((produto) => produtosPorId.set(produto._id, produto));
 
-        renderizarTabela(produtos, { animar: !silencioso, destacarId });
+        renderizarTabela({ animar: !silencioso, destacarId });
         renderizarResumo(resumo, { animar: !silencioso });
     } catch (erro) {
         console.error(erro);
@@ -178,47 +296,11 @@ async function carregarEstoque({ silencioso = false, destacarId = null } = {}) {
     }
 }
 
-/* ---------- Cadastro de produto ---------- */
-// TypeError = o fetch nem chegou ao servidor
-function mensagemDeErro(erro) {
-    return erro instanceof TypeError ? "Não foi possível conectar ao servidor." : erro.message;
-}
-
-const esperar = (ms) => new Promise((resolver) => setTimeout(resolver, ms));
-
-function mostrarErroFormulario(texto) {
-    erroProduto.textContent = texto;
-    erroProduto.hidden = false;
-}
-
-function esconderErroFormulario() {
-    erroProduto.hidden = true;
-    erroProduto.textContent = "";
-}
-
-// Sem argumento: abre vazio (cadastro). Com um produto: abre preenchido (edição).
-function abrirDialogoProduto(produto = null) {
+/* ---------- Produto novo ---------- */
+function abrirDialogoProduto() {
     formProduto.reset(); // volta aos valores iniciais (estoque mínimo = 10)
-    esconderErroFormulario();
-
-    produtoEditandoId = produto ? produto._id : null;
-    botaoExcluir.hidden = !produto; // só aparece na edição
-    cancelarConfirmacaoExclusao();
-    tituloDialogo.textContent = produto ? `Editar produto ${produto.codigo}` : "Novo produto";
-    botaoSalvar.textContent = produto ? "Salvar alterações" : "Salvar produto";
-
-    if (produto) {
-        formProduto.elements.nome.value = produto.nome;
-        formProduto.elements.categoria.value = produto.categoria;
-        formProduto.elements.quantidade.value = produto.quantidade;
-        formProduto.elements.estoqueMinimo.value = produto.estoqueMinimo;
-    }
-
+    esconderErro(erroProduto);
     dialogoProduto.showModal();
-}
-
-function fecharDialogoProduto() {
-    dialogoProduto.close();
 }
 
 async function salvarProduto(evento) {
@@ -226,26 +308,106 @@ async function salvarProduto(evento) {
 
     const dados = Object.fromEntries(new FormData(formProduto));
 
-    esconderErroFormulario();
+    esconderErro(erroProduto);
     botaoSalvar.disabled = true; // evita cadastrar duas vezes com cliques repetidos
 
     try {
-        const editando = produtoEditandoId !== null;
-        const url = editando
-            ? `${url_server}/api/produtos/${produtoEditandoId}`
-            : `${url_server}/api/produtos`;
-
-        const produtoSalvo = await enviarJSON(url, editando ? "PUT" : "POST", dados);
-        fecharDialogoProduto();
-        await carregarEstoque({ silencioso: true, destacarId: produtoSalvo._id });
+        const novoProduto = await enviarJSON(`${url_server}/api/produtos`, "POST", dados);
+        dialogoProduto.close();
+        await carregarEstoque({ silencioso: true, destacarId: novoProduto._id });
     } catch (erro) {
-        mostrarErroFormulario(mensagemDeErro(erro));
+        mostrarErro(erroProduto, mensagemDeErro(erro));
     } finally {
         botaoSalvar.disabled = false;
     }
 }
 
-/* ---------- Exclusão de produto ---------- */
+/* ---------- Adicionar / remover quantidade ---------- */
+function lerQuantidade() {
+    const quantidade = Number(campoQuantidade.value);
+    const valida = campoQuantidade.value !== "" && Number.isInteger(quantidade) && quantidade > 0;
+    return { quantidade, valida };
+}
+
+// Mostra "Estoque atual → depois" enquanto a pessoa digita
+function atualizarPrevia() {
+    const produto = movimento && produtosPorId.get(movimento.id);
+    if (!produto) return;
+
+    const { quantidade, valida } = lerQuantidade();
+    const depois =
+        movimento.tipo === "entrada" ? produto.quantidade + quantidade : produto.quantidade - quantidade;
+
+    quantidadeAtual.textContent = produto.quantidade;
+    quantidadeDepois.textContent = valida && depois >= 0 ? depois : "–";
+}
+
+function abrirDialogoMovimento(produto, tipo) {
+    const entrada = tipo === "entrada";
+
+    movimento = { id: produto._id, tipo };
+
+    formMovimento.reset();
+    esconderErro(erroMovimento);
+    cancelarConfirmacaoExclusao();
+
+    tituloMovimento.textContent = entrada ? "Adicionar ao estoque" : "Remover do estoque";
+    produtoMovimento.textContent = `${produto.codigo} · ${produto.nome}`;
+    rotuloMovimento.textContent = entrada ? "Quantidade a adicionar" : "Quantidade a remover";
+
+    botaoConfirmar.textContent = entrada ? "Adicionar" : "Remover";
+    botaoConfirmar.className = tipo; // "entrada" (verde) ou "saida" (aço)
+
+    botaoExcluir.hidden = entrada; // o Excluir só existe na janela de Remover
+
+    atualizarPrevia();
+    dialogoMovimento.showModal();
+}
+
+async function salvarMovimento(evento) {
+    evento.preventDefault();
+
+    const produto = produtosPorId.get(movimento.id);
+    if (!produto) {
+        mostrarErro(erroMovimento, "Produto não encontrado. Feche a janela e tente de novo.");
+        return;
+    }
+
+    const { quantidade, valida } = lerQuantidade();
+    if (!valida) {
+        mostrarErro(erroMovimento, "Informe uma quantidade inteira maior que zero.");
+        return;
+    }
+
+    const entrada = movimento.tipo === "entrada";
+    if (!entrada && quantidade > produto.quantidade) {
+        mostrarErro(erroMovimento, `Você só pode remover até ${produto.quantidade} unidade(s).`);
+        return;
+    }
+
+    // O servidor recebe o produto completo com a quantidade já recalculada
+    const dados = {
+        nome: produto.nome,
+        categoria: produto.categoria,
+        estoqueMinimo: produto.estoqueMinimo,
+        quantidade: entrada ? produto.quantidade + quantidade : produto.quantidade - quantidade,
+    };
+
+    esconderErro(erroMovimento);
+    botaoConfirmar.disabled = true;
+
+    try {
+        const atualizado = await enviarJSON(`${url_server}/api/produtos/${produto._id}`, "PUT", dados);
+        dialogoMovimento.close();
+        await carregarEstoque({ silencioso: true, destacarId: atualizado._id });
+    } catch (erro) {
+        mostrarErro(erroMovimento, mensagemDeErro(erro));
+    } finally {
+        botaoConfirmar.disabled = false;
+    }
+}
+
+/* ---------- Exclusão de produto (dentro da janela "Remover") ---------- */
 function cancelarConfirmacaoExclusao() {
     clearTimeout(temporizadorConfirmacao);
     botaoExcluir.classList.remove("confirmando");
@@ -263,14 +425,14 @@ async function excluirProduto() {
 
     // 2º toque: exclui de verdade
     clearTimeout(temporizadorConfirmacao);
-    esconderErroFormulario();
+    esconderErro(erroMovimento);
     botaoExcluir.disabled = true;
-    botaoSalvar.disabled = true;
+    botaoConfirmar.disabled = true;
 
     try {
-        const id = produtoEditandoId;
+        const id = movimento.id;
         await enviarJSON(`${url_server}/api/produtos/${id}`, "DELETE");
-        fecharDialogoProduto();
+        dialogoMovimento.close();
 
         // A linha desliza para fora antes de a lista ser recarregada
         corpoTabela.querySelector(`tr[data-id="${id}"]`)?.classList.add("saindo");
@@ -278,41 +440,81 @@ async function excluirProduto() {
 
         await carregarEstoque({ silencioso: true });
     } catch (erro) {
-        mostrarErroFormulario(mensagemDeErro(erro));
+        mostrarErro(erroMovimento, mensagemDeErro(erro));
         cancelarConfirmacaoExclusao();
     } finally {
         botaoExcluir.disabled = false;
-        botaoSalvar.disabled = false;
+        botaoConfirmar.disabled = false;
     }
 }
 
-// Seta, e não só a função, para o evento do clique não ser enviado como "produto"
-botaoAdicionar.addEventListener("click", () => abrirDialogoProduto());
+/* ---------- Usuário e sessão ---------- */
+// Mostra nome e foto de quem está logado
+async function carregarUsuario() {
+    try {
+        const usuario = await buscarJSON(`${url_server}/api/usuarios/eu`);
 
-// Um único "ouvinte" na tabela atende todos os botões Editar, mesmo os criados depois
+        usuarioNome.textContent = usuario.nome;
+        if (usuario.foto) {
+            usuarioFoto.src = usuario.foto;
+        } else {
+            usuarioFoto.hidden = true;
+        }
+        usuarioBarra.hidden = false;
+    } catch (erro) {
+        console.error(erro);
+    }
+}
+
+async function sair() {
+    botaoSair.disabled = true;
+
+    try {
+        await enviarJSON(`${url_server}/api/usuarios/sair`, "POST");
+    } catch (erro) {
+        console.error(erro);
+    }
+
+    irParaLogin();
+}
+
+/* ---------- Eventos ---------- */
+// Filtro: preventDefault impede o envio do formulário (que recarregaria a página)
+formFiltros.addEventListener("submit", (evento) => {
+    evento.preventDefault();
+    renderizarTabela({ animar: true });
+});
+
+// Bônus: a lista também filtra enquanto você digita ou troca a categoria
+campoBusca.addEventListener("input", () => renderizarTabela());
+campoCategoria.addEventListener("change", () => renderizarTabela());
+
+// Produto novo
+botaoAdicionar.addEventListener("click", () => abrirDialogoProduto());
+botaoCancelar.addEventListener("click", () => dialogoProduto.close());
+formProduto.addEventListener("submit", salvarProduto);
+fecharAoClicarFora(dialogoProduto);
+
+// Adicionar / Remover: um único "ouvinte" na tabela atende todos os botões,
+// mesmo os criados depois de cada recarga da lista
 corpoTabela.addEventListener("click", (evento) => {
-    const botao = evento.target.closest("button[data-id]");
+    const botao = evento.target.closest("button[data-acao]");
     if (!botao) return;
 
     const produto = produtosPorId.get(botao.dataset.id);
     if (produto) {
-        abrirDialogoProduto(produto);
+        abrirDialogoMovimento(produto, botao.dataset.acao);
     }
 });
-botaoCancelar.addEventListener("click", fecharDialogoProduto);
+
+campoQuantidade.addEventListener("input", atualizarPrevia);
+formMovimento.addEventListener("submit", salvarMovimento);
+botaoCancelarMovimento.addEventListener("click", () => dialogoMovimento.close());
 botaoExcluir.addEventListener("click", excluirProduto);
-formProduto.addEventListener("submit", salvarProduto);
+fecharAoClicarFora(dialogoMovimento);
 
-// Clicar fora da janela (no fundo escurecido) também fecha
-dialogoProduto.addEventListener("click", (evento) => {
-    if (evento.target === dialogoProduto) {
-        fecharDialogoProduto();
-    }
-});
-
-formFiltro.addEventListener('submit', (e) => {
-    e.preventDefault()
-})
+botaoSair.addEventListener("click", sair);
 
 /* ---------- Início ---------- */
+carregarUsuario();
 carregarEstoque();
